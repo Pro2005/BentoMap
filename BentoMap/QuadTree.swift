@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import MapKit
 
 //following example code and text from https://robots.thoughtbot.com/how-to-handle-large-amounts-of-data-on-maps
 public struct QuadTree<NodeData, Rect: BentoRect, Coordinate: BentoCoordinate> {
@@ -56,7 +57,8 @@ public extension QuadTree {
 
      - returns: an array of quadtree results for each cell that contains nodes.
      */
-    public func clusteredDataWithinMapRect(_ root: Rect, zoomScale: Double, cellSize: Double) -> [QuadTreeResult<NodeData, Rect, Coordinate>] {
+
+    public func clusteredDataWithinMapRect(_ root: Rect, zoomScale: Double, cellSize: Double, shouldBeSingleNode: MKMapPoint?) -> [QuadTreeResult<NodeData, Rect, Coordinate>] {
 
         let scaleFactor: Double
 
@@ -86,7 +88,6 @@ public extension QuadTree {
             for y in stride(from: minY, through: maxY, by: stepSize) {
                 let cellRectangle = Rect(originCoordinate: Coordinate(coordX: x, coordY: y), size: mapStep)
                 let nodes = nodesInRange(BentoBox(root: cellRectangle))
-
                 switch nodes.count {
                 case 0:
                     continue
@@ -95,7 +96,21 @@ public extension QuadTree {
                         result.append(.single(node: first))
                     }
                 default:
-                    result.append(.multiple(nodes: nodes))
+                    if let singleNodeMapPoint = shouldBeSingleNode {
+                        if let singleNode = nodes.filter({$0.originCoordinate.coordX == singleNodeMapPoint.coordX && $0.originCoordinate.coordY == singleNodeMapPoint.coordY}).first {
+                            result.append(.single(node: singleNode))
+                            let nodesWithoutSingleNode = nodes.filter{$0.originCoordinate.coordX != singleNodeMapPoint.coordX || $0.originCoordinate.coordY != singleNodeMapPoint.coordY}
+                            if nodesWithoutSingleNode.count == 1 {
+                                result.append(.single(node: nodesWithoutSingleNode.first!))
+                            } else {
+                                result.append(.multiple(nodes: nodesWithoutSingleNode))
+                            }
+                        } else {
+                            result.append(.multiple(nodes: nodes))
+                        }
+                    } else {
+                        result.append(.multiple(nodes: nodes))
+                    }
                 }
             }
         }
