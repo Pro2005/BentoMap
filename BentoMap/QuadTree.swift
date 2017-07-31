@@ -116,6 +116,41 @@ public extension QuadTree {
         }
         return result
     }
+    
+    public func singleNodeDataWithinMapRect(_ root: Rect, zoomScale: Double, cellSize: Double) -> [QuadTreeResult<NodeData, Rect, Coordinate>] {
+        let scaleFactor: Double
+        
+        // Prevents divide by zero errors from cropping up if handed bad data
+        if cellSize == 0 || zoomScale == 0 {
+            scaleFactor = 1
+        }
+        else {
+            scaleFactor = zoomScale / cellSize
+        }
+        
+        let stepSize = CGFloat(1.0 / scaleFactor)
+        
+        // normalizes the cell grid to make sure the first column is aligned to the step size to prevent jitter
+        let minX = (root.minX - root.minX.remainder(dividingBy: stepSize)) - stepSize
+        // normalizes the cell grid to make sure the last column is added to the buckets
+        let maxX = (root.maxX - root.maxY.remainder(dividingBy: stepSize)) + stepSize
+        // normalizes the cell grid to make sure the first row is aligned to the step size to prevent jitter
+        let minY = (root.minY - root.minY.remainder(dividingBy: stepSize)) - stepSize
+        // normalizes the cell grid to make sure the last row is added to the buckets
+        let maxY = (root.maxY - root.maxY.remainder(dividingBy: stepSize)) + stepSize
+        
+        var result = [QuadTreeResult<NodeData, Rect, Coordinate>]()
+        
+        let mapStep = CGSize(width: Double(stepSize), height: Double(stepSize))
+        for x in stride(from: minX, through: maxX, by: stepSize) {
+            for y in stride(from: minY, through: maxY, by: stepSize) {
+                let cellRectangle = Rect(originCoordinate: Coordinate(coordX: x, coordY: y), size: mapStep)
+                let nodes = nodesInRange(BentoBox(root: cellRectangle))
+                nodes.forEach({result.append(.single(node: $0))})
+            }
+        }
+        return result
+    }
 
     /**
      Inserts a node if the node fits in the
